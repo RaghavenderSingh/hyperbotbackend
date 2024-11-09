@@ -5,6 +5,7 @@ import { bot } from './bot';
 import { errorHandler } from './middleware/errorHandler';
 import { authRouter } from './routes/authRoutes';
 import { signRouter } from './routes/signRoutes';
+import { walletRouter } from './routes/walletRoute';
 
 const prisma = new PrismaClient();
 
@@ -17,13 +18,13 @@ async function startServer() {
     app.use(express.json());
     app.use('/api/v1/auth', authRouter);
     app.use('/api/v1/sign', signRouter);
+    app.use('/api/v1/wallet', walletRouter);
     app.use(errorHandler);
     app.listen(config.port, () => {
       console.log(`API server running on port ${config.port}`);
     });
     await bot.start();
     console.log('Telegram bot started successfully');
-
   } catch (error) {
     console.error('Error starting application:', error);
     await prisma.$disconnect();

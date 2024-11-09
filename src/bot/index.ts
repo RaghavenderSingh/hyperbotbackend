@@ -9,24 +9,112 @@ if (!config.botToken) {
 }
 
 export const bot = new Bot<BotContext>(config.botToken);
-bot.use(session({
-  initial(): SessionData {
-    return { step: 'idle' };
-  },
-}));
+bot.use(
+  session({
+    initial(): SessionData {
+      return { step: 'idle' };
+    },
+  }),
+);
+bot.callbackQuery('close', async (ctx) => {
+  try {
+    await ctx.deleteMessage();
+    await ctx.answerCallbackQuery();
+  } catch (error) {
+    console.error('Error in close handler:', error);
+    await ctx.answerCallbackQuery('Error closing the message');
+  }
+});
+bot.callbackQuery('wallet', async (ctx) => {
+  try {
+    const response = await axios.post(`http://localhost:3000/api/v1/wallet`, {
+      username: ctx.from?.username,
+    });
+    await ctx.reply(
+      `<b>Your Wallet Info</b> 
+    
+Address: <code>${response.data.publicKey}</code>
+Balance: ${response.data.balance} SOL
+
+Tap to copy the address and send SOL to deposit.
+
+`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: 'close', callback_data: 'close' }]] },
+      },
+    );
+
+    await ctx.answerCallbackQuery();
+  } catch (error) {
+    await ctx.answerCallbackQuery('Error fetching wallet info');
+  }
+});
 bot.command('start', async (ctx) => {
   const telegramUsername = ctx.from?.username;
-  
+
   if (!telegramUsername) {
-    await ctx.reply('You need to have a Telegram username to use this bot. Please set up a username in your Telegram settings and try again.');
+    await ctx.reply(
+      'You need to have a Telegram username to use this bot. Please set up a username in your Telegram settings and try again.',
+    );
     return;
   }
 
   try {
     const response = await axios.post('http://localhost:3000/api/v1/auth/signup', {
-      username: telegramUsername
+      username: telegramUsername,
     });
-    await ctx.reply(`${JSON.stringify(response.data, null, 2)}`);
+
+    await ctx.reply(
+      `
+        <b>Welcome to HYPERBot</b>
+Solana's fastest bot to trade any coin (SPL token), built by the 
+HYPER community!
+        
+You currently have no SOL in your wallet. To start trading, 
+deposit SOL to your HYPERbot wallet address:
+        
+<code>${response.data?.publicKey}</code>
+<i>tap to copy</i>
+        
+Once done, tap refresh and your balance will appear here.
+        
+To buy a token enter a ticker, token address, or a URL from:
+• pump.fun
+• Birdeye
+• Dexscreener
+• Meteora
+        
+For more info on your wallet and to retrieve your private key,
+tap the wallet button below. 
+        
+User funds are safe on HYPERbot, but if you expose your private
+key we can't protect you!`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Buy', callback_data: 'wallet' },
+              { text: 'Sell & Manage', callback_data: 'refresh' },
+            ],
+            [
+              { text: 'Help', callback_data: 'help' },
+              { text: 'Refer friend', callback_data: 'refer' },
+              { text: 'Alert', callback_data: 'alert' },
+            ],
+            [
+              { text: 'Wallet', callback_data: 'wallet' },
+              { text: 'Settings', callback_data: 'Setting' },
+            ],
+            [
+              { text: 'Pin', callback_data: 'pin' },
+              { text: 'Refesh', callback_data: 'refresh' },
+            ],
+          ],
+        },
+      },
+    );
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
       await ctx.reply(`Error: ${JSON.stringify(error.response.data, null, 2)}`);
