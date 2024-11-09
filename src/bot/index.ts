@@ -16,6 +16,65 @@ bot.use(
     },
   }),
 );
+
+bot.callbackQuery('refresh', async (ctx) => {
+  try {
+    await ctx.answerCallbackQuery('Refreshing wallet info...');
+    const response = await axios.post(`http://localhost:3000/api/v1/wallet`, {
+      username: ctx.from?.username,
+    });
+    if (ctx.callbackQuery.message) {
+      await ctx.reply(
+        `<b>Your Wallet Info</b> (Updated)
+        
+Address: <code>${response.data.publicKey}</code>
+Balance: ${response.data.balance} SOL
+
+Last updated: ${new Date().toLocaleTimeString()}
+
+Tap to copy the address and send SOL to deposit.`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: 'Refresh', callback_data: 'refresh' },
+                { text: 'Close', callback_data: 'close' },
+              ],
+            ],
+          },
+        },
+      );
+    } else {
+      await ctx.reply(
+        `<b>Your Wallet Info</b>
+        
+Address: <code>${response.data.publicKey}</code>
+Balance: ${response.data.balance} SOL
+
+Last updated: ${new Date().toLocaleTimeString()}
+
+Tap to copy the address and send SOL to deposit.`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: 'Refresh', callback_data: 'refresh' },
+                { text: 'Close', callback_data: 'close' },
+              ],
+            ],
+          },
+        },
+      );
+    }
+  } catch (error) {
+    console.error('Error in refresh handler:', error);
+    await ctx.answerCallbackQuery('Error refreshing wallet info. Please try again.');
+  }
+});
+
+// Close handler
 bot.callbackQuery('close', async (ctx) => {
   try {
     await ctx.deleteMessage();
