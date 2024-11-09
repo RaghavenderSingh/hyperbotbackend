@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
 import { Keypair } from '@solana/web3.js';
 import { SignupRequest, SigninRequest } from '../types';
 
@@ -13,8 +12,6 @@ export const signup = async (req: Request, res: Response) => {
     const existingUser = await prisma.user.findUnique({
       where: { username }
     });
-
-    // If user exists, redirect to signin endpoint with the username
     if (existingUser) {
       return signin(req, res);
     }

@@ -1,5 +1,3 @@
-// src/types.ts
-
 export interface SignupRequest {
     username: string;
     password: string;
