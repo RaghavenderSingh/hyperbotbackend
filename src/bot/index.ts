@@ -132,7 +132,7 @@ bot.callbackQuery('Setting', async (ctx) => {
             [
               {
                 text: 'Close',
-                callback_data: 'none',
+                callback_data: 'close',
               },
             ],
           ],
