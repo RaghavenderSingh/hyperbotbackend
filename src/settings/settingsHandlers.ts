@@ -45,7 +45,7 @@ export const settingsHandlers = {
   },
 
   toggle_mev_protect: async (ctx: Context & SessionFlavor<SessionData>, settings: BotSettings) => {
-    const mevLevels: Array<BotSettings['mevProtect']> = ['TURBO', 'STANDARD', 'OFF'];
+    const mevLevels: Array<BotSettings['mevProtect']> = ['Turbo', 'Secure'];
     const currentIndex = mevLevels.indexOf(settings.mevProtect);
     settings.mevProtect = mevLevels[(currentIndex + 1) % mevLevels.length];
     await handleSettings(ctx, settings);

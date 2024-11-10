@@ -52,7 +52,8 @@ export interface BotSettings {
     sell: number;
     maxPriceImpact: number;
   };
-  mevProtect: 'TURBO' | 'STANDARD' | 'OFF';
+
+  mevProtect: 'Turbo' | 'Secure' | 'OFF';
   transactionPriority: {
     level: 'Low' | 'Medium' | 'High';
     fee: number;

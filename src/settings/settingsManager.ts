@@ -85,17 +85,23 @@ export async function handleSettings(
     ],
   });
 
-  await ctx.reply(buildSettingsMessage(settings), {
-    parse_mode: 'HTML',
-    reply_markup: buildSettingsKeyboard(settings),
-  });
+  if ('callbackQuery' in ctx && ctx.callbackQuery?.message) {
+    await ctx.editMessageText(buildSettingsMessage(settings), {
+      parse_mode: 'HTML',
+      reply_markup: buildSettingsKeyboard(settings),
+    });
+  } else {
+    await ctx.reply(buildSettingsMessage(settings), {
+      parse_mode: 'HTML',
+      reply_markup: buildSettingsKeyboard(settings),
+    });
+  }
 }
 
 export async function handleSettingsInput(
   ctx: Context & SessionFlavor<SessionData>,
   settings: BotSettings,
 ): Promise<void> {
-  // text message only allowed haa
   if (!ctx.message?.text) {
     await ctx.reply('Please send a text message with your setting value.');
     return;
@@ -107,58 +113,69 @@ export async function handleSettingsInput(
     return;
   }
 
+  let confirmationMessage = '';
+  let isValid = false;
+
   switch (ctx.session.step) {
     case 'awaiting_auto_buy_amount':
       if (input <= 0) {
-        await ctx.reply('Please enter a positive amount.');
-        return;
+        confirmationMessage = 'Please enter a positive amount.';
+      } else {
+        settings.autoBuy.amount = input;
+        confirmationMessage = `Auto buy amount updated to ${input} SOL`;
+        isValid = true;
       }
-      settings.autoBuy.amount = input;
-      ctx.session.step = 'idle';
-      await handleSettings(ctx, settings);
       break;
 
     case 'awaiting_min_position':
       if (input <= 0) {
-        await ctx.reply('Please enter a positive amount.');
-        return;
+        confirmationMessage = 'Please enter a positive amount.';
+      } else {
+        settings.minPositionValue = input;
+        confirmationMessage = `Minimum position value updated to $${input}`;
+        isValid = true;
       }
-      settings.minPositionValue = input;
-      ctx.session.step = 'idle';
-      await handleSettings(ctx, settings);
       break;
 
     case 'awaiting_buy_slippage':
       if (input < 0 || input > 100) {
-        await ctx.reply('Please enter a valid percentage between 0 and 100.');
-        return;
+        confirmationMessage = 'Please enter a valid percentage between 0 and 100.';
+      } else {
+        settings.slippage.buy = input;
+        confirmationMessage = `Buy slippage updated to ${input}%`;
+        isValid = true;
       }
-      settings.slippage.buy = input;
-      ctx.session.step = 'idle';
-      await handleSettings(ctx, settings);
       break;
 
     case 'awaiting_sell_slippage':
       if (input < 0 || input > 100) {
-        await ctx.reply('Please enter a valid percentage between 0 and 100.');
-        return;
+        confirmationMessage = 'Please enter a valid percentage between 0 and 100.';
+      } else {
+        settings.slippage.sell = input;
+        confirmationMessage = `Sell slippage updated to ${input}%`;
+        isValid = true;
       }
-      settings.slippage.sell = input;
-      ctx.session.step = 'idle';
-      await handleSettings(ctx, settings);
       break;
 
     case 'awaiting_max_price_impact':
       if (input < 0 || input > 100) {
-        await ctx.reply('Please enter a valid percentage between 0 and 100.');
-        return;
+        confirmationMessage = 'Please enter a valid percentage between 0 and 100.';
+      } else {
+        settings.slippage.maxPriceImpact = input;
+        confirmationMessage = `Max price impact updated to ${input}%`;
+        isValid = true;
       }
-      settings.slippage.maxPriceImpact = input;
-      ctx.session.step = 'idle';
-      await handleSettings(ctx, settings);
       break;
 
     default:
       break;
+  }
+
+  if (isValid) {
+    ctx.session.step = 'idle';
+    await ctx.reply(confirmationMessage, { reply_markup: { remove_keyboard: true } });
+    await handleSettings(ctx, settings);
+  } else {
+    await ctx.reply(confirmationMessage);
   }
 }

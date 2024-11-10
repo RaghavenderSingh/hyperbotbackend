@@ -16,7 +16,8 @@ export const defaultSettings: BotSettings = {
     sell: 10,
     maxPriceImpact: 15,
   },
-  mevProtect: 'TURBO',
+
+  mevProtect: 'Turbo',
   transactionPriority: {
     level: 'Medium',
     fee: 0.001,
