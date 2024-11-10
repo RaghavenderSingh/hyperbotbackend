@@ -17,6 +17,131 @@ bot.use(
   }),
 );
 
+bot.callbackQuery('Setting', async (ctx) => {
+  await ctx.answerCallbackQuery('Setting...');
+  if (ctx.callbackQuery.message) {
+    await ctx.reply(
+      `
+<b>Settings:</b>      
+
+<b>GENERAL SETTINGS</b>
+<b>HYPERbot Announcements</b>: Occasional announcements. Tap to toggle.
+`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '---GENERAL SETTINGS---',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '🟢 Announcements',
+                callback_data: 'announcements',
+              },
+              {
+                text: '✎Min Pos Value $0.001',
+                callback_data: 'announcements',
+              },
+            ],
+            [
+              {
+                text: '---AUTO BUY---',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '🔴 Disabled',
+                callback_data: 'announcements',
+              },
+              {
+                text: '✎ 5.00 SOL',
+                callback_data: 'announcements',
+              },
+            ],
+            [
+              {
+                text: '---BUY BUTTON CONFIG---',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '✎ LEFT: 25%',
+                callback_data: 'announcements',
+              },
+              {
+                text: '✎ RIGHT: 100%',
+                callback_data: 'announcements',
+              },
+            ],
+            [
+              {
+                text: '---SLIPPAGE CONFIG---',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '✎ BUY: 10%',
+                callback_data: 'announcements',
+              },
+              {
+                text: '✎ SELL: 10%',
+                callback_data: 'announcements',
+              },
+            ],
+            [
+              {
+                text: '✎ Max Price Impact: 15%',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '---MEV PROTECT---',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '⇄TURBO',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '---TRANSACTION PRIORITY---',
+                callback_data: 'none',
+              },
+            ],
+            [
+              {
+                text: '⇄Medium',
+                callback_data: 'announcements',
+              },
+              {
+                text: '✎ 0.00100 SOL',
+                callback_data: 'announcements',
+              },
+            ],
+            [
+              {
+                text: 'Close',
+                callback_data: 'none',
+              },
+            ],
+          ],
+        },
+      },
+    );
+  }
+});
+
 bot.callbackQuery('refresh', async (ctx) => {
   try {
     await ctx.answerCallbackQuery('Refreshing wallet info...');
