@@ -1,6 +1,9 @@
 import { Bot, Context, session, SessionFlavor } from 'grammy';
 import { config } from '../config/environment';
-import { SessionData } from '../types';
+import { SessionData, BotSettings } from '../types';
+import { defaultSettings } from '../settings/defaultSettings';
+import { settingsHandlers } from '../settings/settingsHandlers';
+import { handleSettings, handleSettingsInput } from '../settings/settingsManager';
 import axios from 'axios';
 
 type BotContext = Context & SessionFlavor<SessionData>;
@@ -9,6 +12,7 @@ if (!config.botToken) {
 }
 
 export const bot = new Bot<BotContext>(config.botToken);
+const userSettings = new Map<string, BotSettings>();
 bot.use(
   session({
     initial(): SessionData {
@@ -17,129 +21,29 @@ bot.use(
   }),
 );
 
-bot.callbackQuery('Setting', async (ctx) => {
-  await ctx.answerCallbackQuery('Setting...');
-  if (ctx.callbackQuery.message) {
-    await ctx.reply(
-      `
-<b>Settings:</b>      
+bot.command('settings', async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId) return;
 
-<b>GENERAL SETTINGS</b>
-<b>HYPERbot Announcements</b>: Occasional announcements. Tap to toggle.
-`,
-      {
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: '---GENERAL SETTINGS---',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '🟢 Announcements',
-                callback_data: 'announcements',
-              },
-              {
-                text: '✎Min Pos Value $0.001',
-                callback_data: 'announcements',
-              },
-            ],
-            [
-              {
-                text: '---AUTO BUY---',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '🔴 Disabled',
-                callback_data: 'announcements',
-              },
-              {
-                text: '✎ 5.00 SOL',
-                callback_data: 'announcements',
-              },
-            ],
-            [
-              {
-                text: '---BUY BUTTON CONFIG---',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '✎ LEFT: 25%',
-                callback_data: 'announcements',
-              },
-              {
-                text: '✎ RIGHT: 100%',
-                callback_data: 'announcements',
-              },
-            ],
-            [
-              {
-                text: '---SLIPPAGE CONFIG---',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '✎ BUY: 10%',
-                callback_data: 'announcements',
-              },
-              {
-                text: '✎ SELL: 10%',
-                callback_data: 'announcements',
-              },
-            ],
-            [
-              {
-                text: '✎ Max Price Impact: 15%',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '---MEV PROTECT---',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '⇄TURBO',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '---TRANSACTION PRIORITY---',
-                callback_data: 'none',
-              },
-            ],
-            [
-              {
-                text: '⇄Medium',
-                callback_data: 'announcements',
-              },
-              {
-                text: '✎ 0.00100 SOL',
-                callback_data: 'announcements',
-              },
-            ],
-            [
-              {
-                text: 'Close',
-                callback_data: 'none',
-              },
-            ],
-          ],
-        },
-      },
-    );
-  }
+  const settings = userSettings.get(userId) || defaultSettings;
+  await handleSettings(ctx, settings);
+});
+bot.callbackQuery('Setting', async (ctx) => {
+  const userId = ctx.from?.id.toString();
+  if (!userId) return;
+
+  const settings = userSettings.get(userId) || defaultSettings;
+  await handleSettings(ctx, settings);
+});
+Object.entries(settingsHandlers).forEach(([action, handler]) => {
+  bot.callbackQuery(action, async (ctx) => {
+    const userId = ctx.from?.id.toString();
+    if (!userId) return;
+
+    const settings = userSettings.get(userId) || defaultSettings;
+    await handler(ctx, settings);
+    userSettings.set(userId, settings);
+  });
 });
 
 bot.callbackQuery('refresh', async (ctx) => {
@@ -199,7 +103,6 @@ Tap to copy the address and send SOL to deposit.`,
   }
 });
 
-// Close handler
 bot.callbackQuery('close', async (ctx) => {
   try {
     await ctx.deleteMessage();
@@ -312,8 +215,13 @@ bot.catch((err) => {
   console.error('Bot error:', err);
 });
 bot.on('message', async (ctx) => {
-  if (ctx.session.step === 'idle') {
-    const username = ctx.from?.username || 'Anonymous';
-    await ctx.reply(`Hello @${username}! Use /start to begin.`);
+  if (ctx.session.step !== 'idle') {
+    const userId = ctx.from?.id.toString();
+    if (!userId) return;
+
+    const settings = userSettings.get(userId) || defaultSettings;
+    await handleSettingsInput(ctx, settings);
+    userSettings.set(userId, settings);
+    return;
   }
 });
