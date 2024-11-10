@@ -5,6 +5,8 @@ import { defaultSettings } from '../settings/defaultSettings';
 import { settingsHandlers } from '../settings/settingsHandlers';
 import { handleSettings, handleSettingsInput } from '../settings/settingsManager';
 import axios from 'axios';
+import { get } from 'http';
+import { getJupQuote } from '../swap/getQuote';
 
 type BotContext = Context & SessionFlavor<SessionData>;
 if (!config.botToken) {
@@ -137,6 +139,17 @@ Tap to copy the address and send SOL to deposit.
     await ctx.answerCallbackQuery('Error fetching wallet info');
   }
 });
+
+bot.callbackQuery('buy', async (ctx) => {
+  try {
+    const response = await getJupQuote(
+      'So11111111111111111111111111111111111111112',
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      10,
+      50,
+    );
+  } catch (error) {}
+});
 bot.command('start', async (ctx) => {
   const telegramUsername = ctx.from?.username;
 
@@ -182,7 +195,7 @@ key we can't protect you!`,
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Buy', callback_data: 'wallet' },
+              { text: 'Buy', callback_data: 'buy' },
               { text: 'Sell & Manage', callback_data: 'refresh' },
             ],
             [
