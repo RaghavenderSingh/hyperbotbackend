@@ -6,7 +6,8 @@ import { settingsHandlers } from '../settings/settingsHandlers';
 import { handleSettings, handleSettingsInput } from '../settings/settingsManager';
 import axios from 'axios';
 import { get } from 'http';
-import { getJupQuote } from '../swap/getQuote';
+import { getJupQuote, getQuote } from '../swap/getQuote';
+import { swap } from '../swap/jupSwap';
 
 type BotContext = Context & SessionFlavor<SessionData>;
 if (!config.botToken) {
@@ -142,12 +143,17 @@ Tap to copy the address and send SOL to deposit.
 
 bot.callbackQuery('buy', async (ctx) => {
   try {
-    const response = await getJupQuote(
+    const response = await axios.post(`http://localhost:3000/api/v1/wallet`, {
+      username: ctx.from?.username,
+    });
+    const quoteResponse = await swap(
       'So11111111111111111111111111111111111111112',
-      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      '9WPTUkh8fKuCnepRWoPYLH3aK9gSjPHFDenBq2X1Czdp',
       10,
-      50,
+      500,
+      response.data.publicKey,
     );
+    console.log({ quoteResponse });
   } catch (error) {}
 });
 bot.command('start', async (ctx) => {

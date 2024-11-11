@@ -7,12 +7,22 @@ export async function getJupQuote(
   amount: number,
   slippage: number,
 ) {
-  const quoteResponse = await (
+  const response = await (
     await fetch(
       `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${
         amount * LAMPORTS_PER_SOL
       }&slippageBps=${slippage}`,
     )
   ).json();
-  console.log({ quoteResponse });
+  console.log({ response });
+  return response;
+}
+
+export async function getQuote(
+  inputMint: string,
+  outputMint: string,
+  amount: number,
+  slippage: number,
+) {
+  getJupQuote(inputMint, outputMint, amount, slippage);
 }
