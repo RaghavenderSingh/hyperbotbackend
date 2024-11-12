@@ -5,9 +5,6 @@ import { defaultSettings } from '../settings/defaultSettings';
 import { settingsHandlers } from '../settings/settingsHandlers';
 import { handleSettings, handleSettingsInput } from '../settings/settingsManager';
 import axios from 'axios';
-import { get } from 'http';
-import { getJupQuote, getQuote } from '../swap/getQuote';
-import { swap } from '../swap/jupSwap';
 
 type BotContext = Context & SessionFlavor<SessionData>;
 if (!config.botToken) {
