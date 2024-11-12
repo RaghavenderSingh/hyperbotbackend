@@ -30,8 +30,11 @@ export interface SessionData {
     | 'awaiting_buy_slippage'
     | 'awaiting_sell_slippage'
     | 'awaiting_max_price_impact'
-    | 'awaiting_min_position';
+    | 'awaiting_min_position'
+    | 'awaiting_buy_token_address';
+
   username?: string;
+  message_id?: number;
 }
 export interface WalletRequest {
   username: string;

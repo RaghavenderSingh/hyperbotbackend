@@ -22,18 +22,14 @@ class SwapError extends Error {
 }
 
 const prisma = new PrismaClient();
-
-// Use public RPC endpoints with fallbacks
 const RPC_ENDPOINTS = [clusterApiUrl('mainnet-beta'), 'https://api.mainnet-beta.solana.com'];
 
 function getKeypairFromPrivateKey(privateKeyString: string): Keypair {
   try {
-    // Try base58 first
     try {
       const decoded = bs58.decode(privateKeyString);
       return Keypair.fromSecretKey(decoded);
     } catch (e) {
-      // If base58 fails, try base64
       const privateKeyBytes = Buffer.from(privateKeyString, 'base64');
       return Keypair.fromSecretKey(privateKeyBytes);
     }
@@ -107,7 +103,6 @@ export async function swap(
   publicKey: string,
 ) {
   try {
-    // Input validation
     if (!inputMint || !outputMint) {
       throw new SwapError('Input and output mint addresses are required', 'INVALID_MINT_ADDRESS');
     }
@@ -129,8 +124,6 @@ export async function swap(
     }
 
     const signerKeypair = getKeypairFromPrivateKey(user.privateKey);
-
-    // Get quote
     const quoteResponse = await fetch(
       `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${
         amount * LAMPORTS_PER_SOL
@@ -147,8 +140,6 @@ export async function swap(
       }
       return res.json();
     });
-
-    // Get swap transaction
     const swapResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
       method: 'POST',
       headers: {
@@ -175,15 +166,9 @@ export async function swap(
     }
 
     const connection = await getWorkingConnection();
-
-    // Process transaction
     const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
     const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-
-    // Get blockhash
     const { blockhash } = await connection.getLatestBlockhash('processed');
-
-    // Sign and send transaction
     transaction.sign([signerKeypair]);
     const rawTransaction = transaction.serialize();
 
@@ -192,11 +177,7 @@ export async function swap(
       maxRetries: 3,
       preflightCommitment: 'processed',
     });
-
-    // Check transaction status with timeout
     const status = await checkTransactionStatus(connection, txid);
-
-    // Return immediately with transaction ID
     return {
       success: true,
       txid,

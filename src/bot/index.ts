@@ -5,9 +5,6 @@ import { defaultSettings } from '../settings/defaultSettings';
 import { settingsHandlers } from '../settings/settingsHandlers';
 import { handleSettings, handleSettingsInput } from '../settings/settingsManager';
 import axios from 'axios';
-import { get } from 'http';
-import { getJupQuote, getQuote } from '../swap/getQuote';
-import { swap } from '../swap/jupSwap';
 
 type BotContext = Context & SessionFlavor<SessionData>;
 if (!config.botToken) {
@@ -142,18 +139,20 @@ Tap to copy the address and send SOL to deposit.
 });
 
 bot.callbackQuery('buy', async (ctx) => {
+  ctx.session.step = 'awaiting_buy_token_address';
+  const message = await ctx.reply('Enter the token address you want to buy', {
+    reply_markup: {
+      force_reply: true,
+      selective: true,
+    },
+  });
+  ctx.session.message_id = message.message_id;
+  await ctx.answerCallbackQuery();
+
   try {
     const response = await axios.post(`http://localhost:3000/api/v1/wallet`, {
       username: ctx.from?.username,
     });
-    const quoteResponse = await swap(
-      'So11111111111111111111111111111111111111112',
-      '9WPTUkh8fKuCnepRWoPYLH3aK9gSjPHFDenBq2X1Czdp',
-      10,
-      500,
-      response.data.publicKey,
-    );
-    console.log({ quoteResponse });
   } catch (error) {}
 });
 bot.command('start', async (ctx) => {
