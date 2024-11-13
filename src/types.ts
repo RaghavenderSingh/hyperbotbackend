@@ -63,3 +63,17 @@ export interface BotSettings {
     fee: number;
   };
 }
+
+export interface CoinGeckoTokenResponse {
+  id: string;
+  symbol: string;
+  name: string;
+  market_data: {
+    current_price: { [key: string]: number };
+    market_cap: { [key: string]: number };
+    price_change_percentage_5m: number;
+    price_change_percentage_1h: number;
+    price_change_percentage_6h: number;
+    price_change_percentage_24h: number;
+  };
+}

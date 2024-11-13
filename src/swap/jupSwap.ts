@@ -4,9 +4,6 @@ import fetch from 'cross-fetch';
 import { Wallet } from '@project-serum/anchor';
 import bs58 from 'bs58';
 
-// It is recommended that you use your own RPC endpoint.
-// This RPC endpoint is only for demonstration purposes so that this example will run.
-
 const prisma = new PrismaClient();
 const connection = new Connection(
   'https://mainnet.helius-rpc.com/?api-key=301c6d14-7187-4cc7-bb4f-5ffbf87bd760',
@@ -22,7 +19,6 @@ function getKeypairFromPrivateKey(privateKeyString: string) {
     console.error('Private key processing error:', e);
   }
 }
-// Function to swap SOL to USDC with input 0.1 SOL and 0.5% slippage
 
 export async function swap(
   inputMint: string,

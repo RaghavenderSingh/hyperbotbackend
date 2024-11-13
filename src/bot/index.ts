@@ -1,12 +1,15 @@
 import { Bot, Context, session, SessionFlavor } from 'grammy';
 import { ParseMode } from 'grammy/types';
 import { config } from '../config/environment';
-import { SessionData, BotSettings } from '../types';
+import { SessionData, BotSettings, CoinGeckoTokenResponse } from '../types';
 import { defaultSettings } from '../settings/defaultSettings';
 import { settingsHandlers } from '../settings/settingsHandlers';
 import { handleSettings, handleSettingsInput } from '../settings/settingsManager';
 import axios from 'axios';
 import { swap } from '../swap/jupSwap';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { Metadata as SolanaMetadata } from '@metaplex-foundation/mpl-token-metadata';
+import { Metaplex } from '@metaplex-foundation/js';
 
 type BotContext = Context & SessionFlavor<SessionData>;
 
@@ -223,6 +226,77 @@ bot.catch((err) => {
 });
 
 bot.on('message', async (ctx) => {
+  if (ctx.message.text) {
+    if (/^[A-HJ-NP-Za-km-z1-9]{32,44}$/.test(ctx?.message.text)) {
+      const tokenAddress = ctx.message.text.trim();
+      const loadingMessage = await ctx.reply('Fetching token information...');
+
+      try {
+        // Fetch token details from CoinGecko
+        const response = await axios.get<CoinGeckoTokenResponse>(
+          `https://api.coingecko.com/api/v3/coins/solana/contract/${tokenAddress}`,
+        );
+
+        const { name, symbol, market_data } = response.data;
+        const {
+          current_price,
+          market_cap,
+          price_change_percentage_5m,
+          price_change_percentage_1h,
+          price_change_percentage_6h,
+          price_change_percentage_24h,
+        } = market_data;
+
+        console.log(response.data.market_data);
+        const message = `
+  <b>${name} (${symbol.toUpperCase()})</b>
+  Address: <code>${tokenAddress}</code>
+  
+  💰 Price: $${current_price.usd?.toFixed(6)}
+  📊 Price Changes:
+    5m: ${price_change_percentage_5m?.toFixed(2)}%
+    1h: ${price_change_percentage_1h?.toFixed(2)}%
+    6h: ${price_change_percentage_6h?.toFixed(2)}%
+    24h: ${price_change_percentage_24h?.toFixed(2)}%
+  
+  💎 Market Cap: $${market_cap.usd.toLocaleString()}
+  
+  Last updated: ${new Date().toLocaleTimeString()}`;
+
+        // Update keyboard with additional options
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: '🛒 Buy', callback_data: `buy_${tokenAddress}` },
+              {
+                text: '📊 Chart',
+                url: `https://www.coingecko.com/en/coins/solana/${tokenAddress}`,
+              },
+            ],
+            [
+              { text: '📈 DEX Info', url: `https://dexscreener.com/solana/${tokenAddress}` },
+              { text: '🔄 Refresh', callback_data: `refresh_token_${tokenAddress}` },
+            ],
+            [{ text: '❌ Close', callback_data: 'close' }],
+          ],
+        };
+
+        await ctx.api.deleteMessage(ctx.chat.id, loadingMessage.message_id);
+        await ctx.reply(message, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        });
+      } catch (error) {
+        console.error('Error fetching token info:', error);
+        await ctx.api.editMessageText(
+          ctx.chat.id,
+          loadingMessage.message_id,
+          'Error fetching token information. Please verify the token address and try again.',
+        );
+      }
+    }
+  }
+
   if (ctx.session.step === 'awaiting_buy_token_address' && ctx.message.text) {
     try {
       const tokenAddress = ctx.message.text.trim();
@@ -238,16 +312,14 @@ bot.on('message', async (ctx) => {
       const response = await axios.post(`${API_BASE_URL}/wallet`, {
         username: ctx.from?.username,
       });
-      const swapResponse = await swap(
-        SOL_TOKEN_ADDRESS,
-        tokenAddress,
-        10,
-        500,
-        response.data.publicKey,
-      );
-      await ctx.reply(
-        `Swap initiated!\nSwapping SOL for token: ${tokenAddress}\nPlease wait for confirmation...`,
-      );
+      // const swapResponse = await swap(
+      //   SOL_TOKEN_ADDRESS,
+      //   tokenAddress,
+      //   10,
+      //   500,
+      //   response.data.publicKey,
+      // );
+
       ctx.session.step = 'idle';
 
       // if (swapResponse) {
