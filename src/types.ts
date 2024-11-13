@@ -35,6 +35,7 @@ export interface SessionData {
 
   username?: string;
   message_id?: number;
+  tokenAddress?: string;
 }
 export interface WalletRequest {
   username: string;

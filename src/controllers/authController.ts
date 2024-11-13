@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { Keypair } from '@solana/web3.js';
 import { SignupRequest, SigninRequest } from '../types';
+import { bs58 } from '@project-serum/anchor/dist/cjs/utils/bytes';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +11,7 @@ export const signup = async (req: Request, res: Response) => {
     const { username, password }: SignupRequest = req.body;
 
     const existingUser = await prisma.user.findUnique({
-      where: { username }
+      where: { username },
     });
     if (existingUser) {
       return signin(req, res);
@@ -18,26 +19,27 @@ export const signup = async (req: Request, res: Response) => {
 
     const keypair = Keypair.generate();
     const publicKey = keypair.publicKey.toString();
-    const privateKey = Buffer.from(keypair.secretKey).toString('base64');
+    const privateKeyBuffer = Buffer.from(keypair.secretKey);
+    const privateKey = bs58.encode(privateKeyBuffer);
 
     const user = await prisma.user.create({
       data: {
         username,
         publicKey,
-        privateKey
-      }
+        privateKey,
+      },
     });
 
     res.status(201).json({
       message: 'User created successfully',
       userId: user.id,
-      publicKey: user.publicKey
+      publicKey: user.publicKey,
     });
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({
       message: 'Error creating user',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -47,7 +49,7 @@ export const signin = async (req: Request, res: Response) => {
     const { username }: SigninRequest = req.body;
 
     const user = await prisma.user.findUnique({
-      where: { username }
+      where: { username },
     });
 
     if (!user) {
@@ -57,13 +59,13 @@ export const signin = async (req: Request, res: Response) => {
     res.status(200).json({
       message: 'Login successful',
       userId: user.id,
-      publicKey: user.publicKey
+      publicKey: user.publicKey,
     });
   } catch (error) {
     console.error('Signin error:', error);
     res.status(500).json({
       message: 'Error signing in',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

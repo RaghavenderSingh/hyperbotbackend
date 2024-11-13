@@ -1,99 +1,28 @@
 import { PrismaClient } from '@prisma/client';
-import {
-  Connection,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  VersionedTransaction,
-  Keypair,
-  clusterApiUrl,
-} from '@solana/web3.js';
+import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
+import fetch from 'cross-fetch';
+import { Wallet } from '@project-serum/anchor';
 import bs58 from 'bs58';
 
-interface UserWithPrivateKey {
-  privateKey: string;
-  publicKey: string;
-}
-
-class SwapError extends Error {
-  constructor(message: string, public readonly code: string) {
-    super(message);
-    this.name = 'SwapError';
-  }
-}
+// It is recommended that you use your own RPC endpoint.
+// This RPC endpoint is only for demonstration purposes so that this example will run.
 
 const prisma = new PrismaClient();
-const RPC_ENDPOINTS = [clusterApiUrl('mainnet-beta'), 'https://api.mainnet-beta.solana.com'];
+const connection = new Connection(
+  'https://mainnet.helius-rpc.com/?api-key=301c6d14-7187-4cc7-bb4f-5ffbf87bd760',
+  'confirmed',
+);
 
-function getKeypairFromPrivateKey(privateKeyString: string): Keypair {
+function getKeypairFromPrivateKey(privateKeyString: string) {
   try {
-    try {
-      const decoded = bs58.decode(privateKeyString);
-      return Keypair.fromSecretKey(decoded);
-    } catch (e) {
-      const privateKeyBytes = Buffer.from(privateKeyString, 'base64');
-      return Keypair.fromSecretKey(privateKeyBytes);
-    }
-  } catch (error) {
-    throw new SwapError(
-      `Failed to process private key: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'INVALID_PRIVATE_KEY',
-    );
+    const privateKeyBytes = bs58.decode(privateKeyString);
+    console.log('', Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes)));
+    return Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
+  } catch (e) {
+    console.error('Private key processing error:', e);
   }
 }
-
-async function getWorkingConnection(): Promise<Connection> {
-  for (const endpoint of RPC_ENDPOINTS) {
-    try {
-      const connection = new Connection(endpoint, {
-        commitment: 'processed',
-        confirmTransactionInitialTimeout: 20000,
-      });
-      await connection.getSlot();
-      return connection;
-    } catch (error) {
-      console.warn(`Failed to connect to ${endpoint}, trying next...`);
-      continue;
-    }
-  }
-  throw new SwapError('Unable to establish connection to any RPC endpoint', 'CONNECTION_ERROR');
-}
-
-async function checkTransactionStatus(
-  connection: Connection,
-  signature: string,
-  timeout: number = 20000,
-): Promise<{ status: 'success' | 'timeout' | 'error'; error?: string }> {
-  return new Promise((resolve) => {
-    let done = false;
-
-    const timer = setTimeout(() => {
-      if (!done) {
-        done = true;
-        resolve({ status: 'timeout' });
-      }
-    }, timeout);
-
-    const subscription = connection.onSignature(
-      signature,
-      (result, context) => {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          if (result.err) {
-            resolve({ status: 'error', error: result.err.toString() });
-          } else {
-            resolve({ status: 'success' });
-          }
-        }
-      },
-      'processed',
-    );
-
-    setTimeout(() => {
-      connection.removeSignatureListener(subscription);
-    }, timeout);
-  });
-}
+// Function to swap SOL to USDC with input 0.1 SOL and 0.5% slippage
 
 export async function swap(
   inputMint: string,
@@ -103,102 +32,66 @@ export async function swap(
   publicKey: string,
 ) {
   try {
-    if (!inputMint || !outputMint) {
-      throw new SwapError('Input and output mint addresses are required', 'INVALID_MINT_ADDRESS');
+    const url = new URL('https://quote-api.jup.ag/v6/quote');
+    url.searchParams.append('inputMint', inputMint);
+    url.searchParams.append('outputMint', outputMint);
+    url.searchParams.append('amount', '100000000');
+    url.searchParams.append('slippageBps', slippage.toString());
+    url.searchParams.append('platformFeeBps', '20');
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      throw new Error(`Error fetching quote: ${response.statusText}`);
     }
-
-    if (amount <= 0) {
-      throw new SwapError('Amount must be greater than 0', 'INVALID_AMOUNT');
-    }
-
-    if (slippage < 0 || slippage > 10000) {
-      throw new SwapError('Slippage must be between 0 and 10000 basis points', 'INVALID_SLIPPAGE');
-    }
-
-    const user = (await prisma.user.findUnique({
-      where: { publicKey: publicKey },
-    })) as UserWithPrivateKey | null;
-
+    const user = await prisma.user.findFirst({
+      where: {
+        publicKey: publicKey,
+      },
+    });
+    console.log('user', user?.privateKey);
     if (!user) {
-      throw new SwapError('User not found', 'USER_NOT_FOUND');
+      throw new Error('User not found');
     }
-
-    const signerKeypair = getKeypairFromPrivateKey(user.privateKey);
-    const quoteResponse = await fetch(
-      `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${
-        amount * LAMPORTS_PER_SOL
-      }&slippageBps=${slippage}`,
-      {
+    const wallet = new Wallet(Keypair.fromSecretKey(bs58.decode(user?.privateKey!.toString())));
+    console.log('wallet', wallet);
+    const quoteResponse = await response.json();
+    console.log('quoteResponse', quoteResponse);
+    const { swapTransaction } = await (
+      await fetch('https://quote-api.jup.ag/v6/swap', {
+        method: 'POST',
         headers: {
-          Accept: 'application/json',
-          'User-Agent': 'Mozilla/5.0',
+          'Content-Type': 'application/json',
         },
-      },
-    ).then((res) => {
-      if (!res.ok) {
-        throw new SwapError(`Quote API error: ${res.status}`, 'QUOTE_ERROR');
-      }
-      return res.json();
-    });
-    const swapResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      body: JSON.stringify({
-        quoteResponse,
-        userPublicKey: publicKey,
-        wrapAndUnwrapSol: true,
-      }),
-    });
+        body: JSON.stringify({
+          quoteResponse,
+          userPublicKey: wallet.publicKey.toString(),
+          wrapAndUnwrapSol: true,
+          feeAccount: 'GYBSePBkMpdswyfomjR8fF3TG3Ucq2TFs8qDbTKGD6yr',
+        }),
+      })
+    ).json();
 
-    if (!swapResponse.ok) {
-      throw new SwapError(`Swap API error: ${swapResponse.status}`, 'SWAP_API_ERROR');
-    }
-
-    const swapData = await swapResponse.json();
-    const swapTransaction = swapData.swapTransaction;
-
-    if (!swapTransaction) {
-      throw new SwapError('No swap transaction returned', 'SWAP_TRANSACTION_ERROR');
-    }
-
-    const connection = await getWorkingConnection();
     const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
-    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-    const { blockhash } = await connection.getLatestBlockhash('processed');
-    transaction.sign([signerKeypair]);
-    const rawTransaction = transaction.serialize();
+    console.log('swapTransactionBuf', swapTransactionBuf);
+    var transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+    console.log('transaction', transaction);
 
+    transaction.sign([wallet.payer]);
+    const latestBlockHash = await connection.getLatestBlockhash();
+    const rawTransaction = transaction.serialize();
     const txid = await connection.sendRawTransaction(rawTransaction, {
       skipPreflight: true,
-      maxRetries: 3,
-      preflightCommitment: 'processed',
+      maxRetries: 2,
     });
-    const status = await checkTransactionStatus(connection, txid);
-    return {
-      success: true,
-      txid,
-      explorerUrl: `https://solscan.io/tx/${txid}`,
-      status: status.status,
-      error: status.error,
-      message:
-        status.status === 'timeout'
-          ? 'Transaction submitted but confirmation timed out. Check explorer for final status.'
-          : undefined,
-    };
+    await connection.confirmTransaction({
+      blockhash: latestBlockHash.blockhash,
+      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+      signature: txid,
+    });
+    console.log(`https://solscan.io/tx/${txid}`);
   } catch (error) {
-    console.error('Swap failed:', error);
-
-    if (error instanceof SwapError) {
-      throw error;
-    }
-
-    throw new SwapError(
-      `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'UNKNOWN_ERROR',
-    );
+    // Catch any errors that occur during the fetch request or JSON parsing
+    // Log the error to the console
+    console.error('Failed to get quote:', error);
   }
 }
